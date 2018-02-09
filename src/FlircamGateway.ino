@@ -49,7 +49,7 @@
 #define ATC_RSSI      -75  //target RSSI for RFM69_ATC (recommended > -80)
 //*****************************************************************************************************************************
 // Serial baud rate must match your Pi/host computer serial port baud rate!
-#define SERIAL_EN     //comment out if you don't want any serial verbose output
+#undef SERIAL_EN     //comment out if you don't want any serial verbose output
 #define SERIAL_BAUD  115200
 //*****************************************************************************************************************************
 
