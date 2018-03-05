@@ -137,21 +137,28 @@ void loop()
     pinMode(LED, OUTPUT);
     digitalWrite(LED,HIGH);
 
+    // Copy the data from the radio before transmitting ACK.
+    uint8_t radioDataBuffer[70];
+    int radioDataLen = radio.DATALEN;
+    memcpy(radioDataBuffer,const_cast<const uint8_t*>(&radio.DATA[0]),radioDataLen);
+
     int rssi = radio.RSSI;
+    int senderId = radio.SENDERID;
     bool ackRequested = radio.ACKRequested();
     if (ackRequested)
     {
       radio.sendACK();
     }
 
-    Serial.print('[');Serial.print(radio.SENDERID);Serial.print("] ");
+    // After transmitting ack, write the data to the serial port.
+    Serial.print('[');Serial.print(senderId);Serial.print("] ");
     Serial.print("[RSSI:");Serial.print(rssi);Serial.print("]");
     if (ackRequested)
     {
       Serial.print("[ACK-requested]"); 
     }
-    Serial.print("[data("); Serial.print(radio.DATALEN);Serial.print("):");
-    printDataAsHex((uint8_t*)radio.DATA, radio.DATALEN);
+    Serial.print("[data("); Serial.print(radioDataLen);Serial.print("):");
+    printDataAsHex(radioDataBuffer, radioDataLen);
     Serial.print("]\n");
   }
 
