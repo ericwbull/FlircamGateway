@@ -125,9 +125,15 @@ void printDataAsHex(uint8_t* dataBuffer, int len)
     }
 }
 
+int g_radioSendBufferLen = 0;
+uint8_t g_radioSendBuffer[70] = {0};
+byte g_radioSendTargetId = 0;
+
 void loop() 
 {
+  
   mySerialEvent();
+  
 
   // Data received from the radio gets delivered to Serial as 
   // hexidecimal 2 chars per byte no spaces.
@@ -148,6 +154,33 @@ void loop()
     if (ackRequested)
     {
       radio.sendACK();
+    }
+
+
+    // Send if we have data waiting.
+    if (g_radioSendBufferLen != 0 && senderId == g_radioSendTargetId)
+    {
+      // Seems that a delay is needed here.  The other side must not be ready to receive so soon after sending.
+      // Instead of always delay, let it retry sending for longer.
+      // Measured time to send and receive ack (with debug builds):
+      //     525ms, with retry wait 255ms
+      //     324ms, with retry wait 60ms
+      //     315ms, with retry wait 150ms
+      //     310ms, with default retry wait (40ms)
+      //delay(500);
+      DEBUG("Radio send len:");DEBUGln(g_radioSendBufferLen);
+      #ifdef SERIAL_EN
+      unsigned long startTime = millis();
+      #endif
+      radio.sendWithRetry(g_radioSendTargetId, g_radioSendBuffer, g_radioSendBufferLen,10);
+      if (radio.ACK_RECEIVED)
+      {
+           #ifdef SERIAL_EN
+           unsigned long endTime = millis();
+           #endif
+          DEBUG("ack received ");DEBUGln(endTime-startTime);
+      }
+     g_radioSendBufferLen = 0;
     }
 
     // After transmitting ack, write the data to the serial port.
@@ -182,7 +215,10 @@ bool copySerialInputToString(String& s)
 
       if (inChar == '\n' || inChar == '\r') 
       {
-        return true;
+        if (s.length()>0)
+        {
+            return true;
+        }
       }
     }
     return false;
@@ -234,15 +270,17 @@ void mySerialEvent()
     // The string is bytes encoded as hexidecimal, 2 chars per byte, no spaces
     // Translate to bytes before transmission.
     // Radio supports up to 61 bytes.
-    uint8_t sendBuf[64];
-    int sendLen;
-    sendLen = stringToData(inputString.c_str(),sendBuf);
-
+    
+    // BEWARE:  If there is a message queued to send, then this will overwrite the queued message.
+    g_radioSendBufferLen = stringToData(inputString.c_str(),g_radioSendBuffer);
+    g_radioSendTargetId = targetId;
+DEBUG("Message to send, target:");DEBUG(g_radioSendTargetId);DEBUG(", len:");DEBUGln(g_radioSendBufferLen);
     // clear the string:
     inputString = "";
     stringComplete = false;
 
+  // Don't send until we receive something.
     // send over radio
-    radio.send(targetId, sendBuf, sendLen);
+   // radio.send(targetId, sendBuf, sendLen);
    }
 }
